@@ -107,7 +107,7 @@ export default function CustomerList() {
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md"
+                  className="focus:ring-indigo-500 focus:border-indigo-500 block h-10 w-full pl-10 sm:text-sm border-gray-300 rounded-md"
                   placeholder="Search customers..."
                 />
               </div>
@@ -138,7 +138,7 @@ export default function CustomerList() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Village
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:block">
                           Contact
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -163,7 +163,7 @@ export default function CustomerList() {
                               {customer.village_name}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap hidden sm:block">
                             <div className="text-sm text-gray-500">
                               {customer.contact_number || '-'}
                             </div>

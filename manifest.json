@@ -1,0 +1,31 @@
+{
+  "start_url": "https://ledger-book-bice.vercel.app/",
+  "dir": "auto",
+  "lang": "en",
+  "display": "fullscreen",
+  "orientation": "any",
+  "categories": [
+    "productivity"
+  ],
+  "icons": [
+  {
+    "src": "/icons/icon-192x192.png",
+    "type": "image/png",
+    "sizes": "192x192"
+  },
+  {
+    "src": "/icons/icon-512x512.png",
+    "type": "image/png",
+    "sizes": "512x512"
+  }
+],
+  "display_override": [
+    "fullscreen",
+    "window-controls-overlay"
+  ],
+  "name": "Ledger",
+  "theme_color": "#000000",
+  "background_color": "#000000",
+  "short_name": "Ledger",
+  "description": "Can be used to store and manage Ledger data."
+}

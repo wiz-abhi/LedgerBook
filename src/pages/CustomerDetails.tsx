@@ -231,7 +231,7 @@ export default function CustomerDetails() {
                           required
                           value={newTransaction.amount}
                           onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
-                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                          className="shadow-sm focus:ring-indigo-500 h-8 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
                         />
                       </div>
                     </div>
@@ -246,7 +246,7 @@ export default function CustomerDetails() {
                           id="description"
                           value={newTransaction.description}
                           onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
-                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block h-8 w-full sm:text-sm border-gray-300 rounded-md"
                         />
                       </div>
                     </div>

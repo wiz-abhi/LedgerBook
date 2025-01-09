@@ -1,48 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
-import queryString from 'query-string'; // You can install this library to handle query params easily
+import queryString from 'query-string';
 
-// Define types
 type Customer = {
   id: string;
   name: string;
   village_name: string;
   contact_number: string | null;
-  outstanding_dues: string; // assuming outstanding_dues is stored as a string
+  outstanding_dues: string;
 };
 
-type NewCustomer = {
+type CustomerFormData = {
   name: string;
   village_name: string;
   contact_number: string;
 };
 
 export default function CustomerList() {
-  const [customers, setCustomers] = useState<Customer[]>([]); // Use Customer type for the customers state
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('name');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newCustomer, setNewCustomer] = useState<NewCustomer>({
+  const [showModal, setShowModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [formData, setFormData] = useState<CustomerFormData>({
     name: '',
     village_name: '',
     contact_number: '',
   });
+  
   const user = useAuthStore((state) => state.user);
-  const location = useLocation(); // Get the current URL location
+  const location = useLocation();
 
   useEffect(() => {
     fetchCustomers();
   }, [sortBy]);
 
   useEffect(() => {
-    // Parse the village_name query parameter from the URL
     const { village_name } = queryString.parse(location.search);
-    if (village_name) {
-      setSearch(village_name as string); // Set the search value to the village_name if it exists
-    }
+    if (village_name) setSearch(village_name as string);
   }, [location.search]);
 
   async function fetchCustomers() {
@@ -50,25 +49,67 @@ export default function CustomerList() {
       .from('customers')
       .select('*')
       .order(sortBy);
-    
     if (data) setCustomers(data);
   }
 
-  async function handleAddCustomer(e: React.FormEvent) {
+  function handleEdit(customer: Customer, e: React.MouseEvent) {
+    e.stopPropagation();
+    setIsEditing(true);
+    setSelectedCustomer(customer);
+    setFormData({
+      name: customer.name,
+      village_name: customer.village_name,
+      contact_number: customer.contact_number || '',
+    });
+    setShowModal(true);
+  }
+
+  async function handleDelete(customerId: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (confirm('Are you sure you want to delete this customer?')) {
+      const { error } = await supabase
+        .from('customers')
+        .delete()
+        .match({ id: customerId });
+
+      if (!error) {
+        fetchCustomers();
+      }
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     
-    const { error } = await supabase
-      .from('customers')
-      .insert([{
-        ...newCustomer,
-        user_id: user.id // Add the user_id to associate the customer with the authenticated user
-      }]);
+    if (isEditing && selectedCustomer) {
+      const { error } = await supabase
+        .from('customers')
+        .update(formData)
+        .match({ id: selectedCustomer.id });
 
-    if (!error) {
-      setShowAddModal(false);
-      setNewCustomer({ name: '', village_name: '', contact_number: '' });
-      fetchCustomers();
+      if (!error) {
+        setShowModal(false);
+        fetchCustomers();
+      }
+    } else {
+      const { error } = await supabase
+        .from('customers')
+        .insert([{ ...formData, user_id: user.id }]);
+
+      if (!error) {
+        setShowModal(false);
+        fetchCustomers();
+      }
     }
+    
+    resetForm();
+  }
+
+  function resetForm() {
+    setFormData({ name: '', village_name: '', contact_number: '' });
+    setIsEditing(false);
+    setSelectedCustomer(null);
+    setShowModal(false);
   }
 
   const filteredCustomers = customers.filter((customer) =>
@@ -87,7 +128,7 @@ export default function CustomerList() {
           </div>
           <div className="mt-4 flex md:mt-0 md:ml-4">
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={() => setShowModal(true)}
               className="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -142,7 +183,10 @@ export default function CustomerList() {
                           Contact
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Outstanding Dues
+                          Out. Dues
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
                         </th>
                       </tr>
                     </thead>
@@ -173,6 +217,20 @@ export default function CustomerList() {
                               ₹{parseFloat(customer.outstanding_dues).toFixed(2)}
                             </div>
                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={(e) => handleEdit(customer, e)}
+                              className="text-indigo-600 hover:text-indigo-900 mr-4"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={(e) => handleDelete(customer.id, e)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -184,15 +242,17 @@ export default function CustomerList() {
         </div>
       </div>
 
-      {showAddModal && (
+      {showModal && (
         <div className="fixed z-10 inset-0 overflow-y-auto">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
             <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-              <form onSubmit={handleAddCustomer}>
+              <form onSubmit={handleSubmit}>
                 <div>
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">Add New Customer</h3>
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    {isEditing ? 'Edit Customer' : 'Add New Customer'}
+                  </h3>
                   <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                     <div className="sm:col-span-6">
                       <label htmlFor="name" className="block text-sm font-medium text-gray-700">
@@ -204,8 +264,8 @@ export default function CustomerList() {
                           name="name"
                           id="name"
                           required
-                          value={newCustomer.name}
-                          onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                           className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
                         />
                       </div>
@@ -221,8 +281,8 @@ export default function CustomerList() {
                           name="village"
                           id="village"
                           required
-                          value={newCustomer.village_name}
-                          onChange={(e) => setNewCustomer({ ...newCustomer, village_name: e.target.value })}
+                          value={formData.village_name}
+                          onChange={(e) => setFormData({ ...formData, village_name: e.target.value })}
                           className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
                         />
                       </div>
@@ -237,8 +297,8 @@ export default function CustomerList() {
                           type="tel"
                           name="contact"
                           id="contact"
-                          value={newCustomer.contact_number}
-                          onChange={(e) => setNewCustomer({ ...newCustomer, contact_number: e.target.value })}
+                          value={formData.contact_number}
+                          onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
                           className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
                         />
                       </div>
@@ -248,7 +308,7 @@ export default function CustomerList() {
                 <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
                   <button
                     type="button"
-                    onClick={() => setShowAddModal(false)}
+                    onClick={resetForm}
                     className="w-full inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
                   >
                     Cancel
@@ -257,7 +317,7 @@ export default function CustomerList() {
                     type="submit"
                     className="mt-3 w-full inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:w-auto"
                   >
-                    Add Customer
+                    {isEditing ? 'Save Changes' : 'Add Customer'}
                   </button>
                 </div>
               </form>

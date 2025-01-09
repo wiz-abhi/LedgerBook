@@ -37,12 +37,13 @@ function App() {
         {isAuthenticated && (
           <nav style={styles.nav}>
             <div style={styles.navLeft}>
-              <Link to="/" style={styles.navLink}>Dashboard</Link>
-              <Logout />
+              <Link to="/" style={styles.addCustomerButton}>Dashboard</Link>
             </div>
-            <div style={styles.navRight}>
-              <Link to="/customers" style={styles.addCustomerButton}>Add Customer</Link>
+            <div className='flex items-center gap-7' style={styles.navRight}>
+              <Link to="/customers" style={styles.navLink}>Customers</Link>
+              <Link to="/villages" style={styles.navLink}>Villages</Link>
             </div>
+            <Logout />
           </nav>
         )}
         

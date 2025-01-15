@@ -230,19 +230,19 @@ export default function CustomerList() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Name
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Village
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:block">
+                        <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Contact
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Out. Dues
+                        <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Dues
                         </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
                         </th>
                       </tr>
@@ -254,30 +254,30 @@ export default function CustomerList() {
                           className="hover:bg-gray-50 cursor-pointer"
                           onClick={() => window.location.href = `/customers/${customer.id}`}
                         >
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">
                               {customer.name}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-500">
                               {customer.village_name}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap hidden sm:block">
+                          <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-500">
                               {customer.contact_number || '-'}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
                               ₹{parseFloat(customer.outstanding_dues).toFixed(2)}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button
                               onClick={(e) => handleEdit(customer, e)}
-                              className="text-indigo-600 hover:text-indigo-900 mr-4"
+                              className="text-indigo-600 hover:text-indigo-900 mr-2 sm:mr-4"
                             >
                               <Edit2 className="h-4 w-4" />
                             </button>

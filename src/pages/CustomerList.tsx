@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Plus, Search, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import queryString from 'query-string';
+import { CustomerFormModal } from '../components/CustomerFormModal';
+import * as XLSX from 'xlsx';
 
 type Customer = {
   id: string;
@@ -35,22 +37,22 @@ export default function CustomerList() {
   const user = useAuthStore((state) => state.user);
   const location = useLocation();
 
-  useEffect(() => {
-    fetchCustomers();
-  }, [sortBy]);
-
-  useEffect(() => {
-    const { village_name } = queryString.parse(location.search);
-    if (village_name) setSearch(village_name as string);
-  }, [location.search]);
-
-  async function fetchCustomers() {
+  const fetchCustomers = useCallback(async () => {
     const { data } = await supabase
       .from('customers')
       .select('*')
       .order(sortBy);
     if (data) setCustomers(data);
-  }
+  }, [sortBy]);
+
+  useEffect(() => {
+    fetchCustomers();
+  }, [fetchCustomers]);
+
+  useEffect(() => {
+    const { village_name } = queryString.parse(location.search);
+    if (village_name) setSearch(village_name as string);
+  }, [location.search]);
 
   function handleEdit(customer: Customer, e: React.MouseEvent) {
     e.stopPropagation();
@@ -117,6 +119,54 @@ export default function CustomerList() {
     customer.village_name.toLowerCase().includes(search.toLowerCase())
   );
 
+  async function exportMasterData() {
+    const { data: customersData } = await supabase
+      .from('customers')
+      .select(`
+        id,
+        name,
+        village_name,
+        contact_number,
+        outstanding_dues,
+        transactions (
+          amount,
+          type,
+          description,
+          created_at
+        )
+      `);
+
+    if (!customersData) return;
+
+    const customerSummary = customersData.map(customer => ({
+      'Customer Name': customer.name,
+      'Village': customer.village_name,
+      'Contact': customer.contact_number || '-',
+      'Outstanding Dues': `₹${parseFloat(customer.outstanding_dues).toFixed(2)}`,
+    }));
+
+    const transactionDetails = customersData.flatMap(customer => 
+      (customer.transactions || []).map(transaction => ({
+        'Customer Name': customer.name,
+        'Village': customer.village_name,
+        'Date': new Date(transaction.created_at).toLocaleDateString(),
+        'Type': transaction.type,
+        'Amount': `₹${Math.abs(parseFloat(transaction.amount)).toFixed(2)}`,
+        'Description': transaction.description || '-',
+      }))
+    );
+
+    const wb = XLSX.utils.book_new();
+    
+    const wsSummary = XLSX.utils.json_to_sheet(customerSummary);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Customer Summary');
+    
+    const wsTransactions = XLSX.utils.json_to_sheet(transactionDetails);
+    XLSX.utils.book_append_sheet(wb, wsTransactions, 'Transaction Details');
+
+    XLSX.writeFile(wb, `customer_master_data_${new Date().toLocaleDateString()}.xlsx`);
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -126,10 +176,17 @@ export default function CustomerList() {
               Customers
             </h2>
           </div>
-          <div className="mt-4 flex md:mt-0 md:ml-4">
+          <div className="mt-4 flex md:mt-0 md:ml-4 space-x-3">
+            <button
+              onClick={exportMasterData}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export Master Data
+            </button>
             <button
               onClick={() => setShowModal(true)}
-              className="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Customer
@@ -242,89 +299,14 @@ export default function CustomerList() {
         </div>
       </div>
 
-      {showModal && (
-        <div className="fixed z-10 inset-0 overflow-y-auto">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
-            <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-              <form onSubmit={handleSubmit}>
-                <div>
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
-                    {isEditing ? 'Edit Customer' : 'Add New Customer'}
-                  </h3>
-                  <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                    <div className="sm:col-span-6">
-                      <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                        Name
-                      </label>
-                      <div className="mt-1">
-                        <input
-                          type="text"
-                          name="name"
-                          id="name"
-                          required
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="sm:col-span-6">
-                      <label htmlFor="village" className="block text-sm font-medium text-gray-700">
-                        Village Name
-                      </label>
-                      <div className="mt-1">
-                        <input
-                          type="text"
-                          name="village"
-                          id="village"
-                          required
-                          value={formData.village_name}
-                          onChange={(e) => setFormData({ ...formData, village_name: e.target.value })}
-                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="sm:col-span-6">
-                      <label htmlFor="contact" className="block text-sm font-medium text-gray-700">
-                        Contact Number (Optional)
-                      </label>
-                      <div className="mt-1">
-                        <input
-                          type="tel"
-                          name="contact"
-                          id="contact"
-                          value={formData.contact_number}
-                          onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
-                          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="w-full inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="mt-3 w-full inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:w-auto"
-                  >
-                    {isEditing ? 'Save Changes' : 'Add Customer'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
+      <CustomerFormModal
+        showModal={showModal}
+        isEditing={isEditing}
+        formData={formData}
+        onSubmit={handleSubmit}
+        onCancel={resetForm}
+        onFormDataChange={(data) => setFormData({ ...formData, ...data })}
+      />
     </div>
   );
 }

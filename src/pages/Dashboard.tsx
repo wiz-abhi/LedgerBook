@@ -1,7 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Users, IndianRupee, ArrowUpRight } from 'lucide-react';
+import { Users, IndianRupee, ArrowUpRight, UserPlus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { CustomerFormModal } from '../components/CustomerFormModal';
+import { useAuthStore } from '../store/authStore';
+
 
 interface Transaction {
   id?: string;
@@ -19,6 +22,7 @@ interface Customer {
   name: string;
   village_name: string;
   outstanding_dues: number;
+  contact_number?: string;
 }
 
 interface TransactionModalProps {
@@ -33,23 +37,30 @@ interface TransactionModalProps {
   }) => Promise<void>;
 }
 
-const TransactionModal: React.FC<TransactionModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  type, 
-  onSubmit 
+const TransactionModal: React.FC<TransactionModalProps> = ({
+  isOpen,
+  onClose,
+  type,
+  onSubmit
 }) => {
+  const user = useAuthStore((state) => state.user);
   const [amount, setAmount] = React.useState('');
   const [description, setDescription] = React.useState('');
   const [customers, setCustomers] = React.useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = React.useState<Customer | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = React.useState(false);
+  const [customerFormData, setCustomerFormData] = React.useState({
+    name: '',
+    village_name: '',
+    contact_number: ''
+  });
 
   React.useEffect(() => {
     const fetchCustomers = async () => {
       const { data } = await supabase
         .from('customers')
-        .select('id, name, village_name, outstanding_dues');
+        .select('id, name, village_name, outstanding_dues, contact_number');
       setCustomers(data || []);
     };
     
@@ -68,11 +79,45 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     setSearchQuery('');
   };
 
+  const handleAddCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const { data: newCustomer, error } = await supabase
+        .from('customers')
+        .insert([{
+          name: customerFormData.name,
+          village_name: customerFormData.village_name,
+          contact_number: customerFormData.contact_number || null,
+          outstanding_dues: 0,
+          user_id: user.id
+        }])
+        .select()
+        .single();
+  
+      if (error) {
+        console.error('Error adding customer:', error);
+        return;
+      }
+  
+      if (newCustomer) {
+        setCustomers(prevCustomers => [...prevCustomers, newCustomer]);
+        setSelectedCustomer(newCustomer);
+        setIsAddCustomerModalOpen(false);
+        setCustomerFormData({
+          name: '',
+          village_name: '',
+          contact_number: ''
+        });
+      }
+    } catch (error) {
+      console.error('Error adding customer:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCustomer || !amount) return;
 
-    // CREDIT decreases dues (negative), DEBIT increases dues (positive)
     await onSubmit({
       customerId: selectedCustomer.id,
       amount: type === 'CREDIT' ? -parseFloat(amount) : parseFloat(amount),
@@ -90,91 +135,138 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h3 className="text-lg font-medium mb-4">
-          New {type.toLowerCase()} Transaction
-        </h3>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Search Customer</label>
-            <input
-              type="text"
-              className="w-full px-3 py-2 border rounded-md"
-              placeholder="Search customers..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {searchQuery && (
-              <div className="mt-2 border rounded-md max-h-48 overflow-y-auto">
-                {filteredCustomers.map((customer) => (
-                  <div
-                    key={customer.id}
-                    className={`p-2 cursor-pointer hover:bg-gray-100 ${
-                      selectedCustomer?.id === customer.id ? 'bg-gray-100' : ''
-                    }`}
-                    onClick={() => handleCustomerSelect(customer)}
-                  >
-                    {customer.name} ({customer.village_name})
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <h3 className="text-lg font-medium mb-4">
+            New {type.toLowerCase()} Transaction
+          </h3>
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Search Customer</label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border rounded-md"
+                placeholder="Search customers..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <div className="mt-2 space-y-2">
+                  <div className="border rounded-md max-h-48 overflow-y-auto">
+                    {filteredCustomers.map((customer) => (
+                      <div
+                        key={customer.id}
+                        className="p-2 cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleCustomerSelect(customer)}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div>
+                            {customer.name} ({customer.village_name})
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {customer.contact_number}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-            {selectedCustomer && (
-              <div className="mt-2 p-2 bg-gray-100 rounded-md">
-                Selected: {selectedCustomer.name} ({selectedCustomer.village_name})
-              </div>
-            )}
-          </div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomerFormData(prev => ({ ...prev, name: searchQuery }));
+                      setIsAddCustomerModalOpen(true);
+                    }}
+                    className="w-full flex items-center justify-center px-4 py-2 text-sm border border-dashed rounded-md hover:bg-gray-50"
+                  >
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Add new "{searchQuery}"
+                  </button>
+                </div>
+              )}
+              {selectedCustomer && (
+                <div className="mt-2 p-2 bg-gray-100 rounded-md">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      Selected: {selectedCustomer.name} ({selectedCustomer.village_name})
+                    </div>
+                    {selectedCustomer.contact_number && (
+                      <div className="text-sm text-gray-500">
+                        {selectedCustomer.contact_number}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Amount (₹)</label>
-            <input
-              type="number"
-              className="w-full px-3 py-2 border rounded-md"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="Enter amount"
-              min="0"
-              step="0.01"
-              required
-            />
-          </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Amount (₹)</label>
+              <input
+                type="number"
+                className="w-full px-3 py-2 border rounded-md"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="Enter amount"
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Description</label>
-            <input
-              type="text"
-              className="w-full px-3 py-2 border rounded-md"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter description"
-            />
-          </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border rounded-md"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Enter description"
+              />
+            </div>
 
-          <div className="flex justify-end space-x-2 mt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border rounded-md hover:bg-gray-100"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className={`px-4 py-2 text-white rounded-md ${
-                type === 'CREDIT' 
-                  ? 'bg-green-600 hover:bg-green-700' 
-                  : 'bg-red-600 hover:bg-red-700'
-              }`}
-            >
-              Submit {type.toLowerCase()}
-            </button>
-          </div>
-        </form>
+            <div className="flex justify-end space-x-2 mt-6">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 border rounded-md hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className={`px-4 py-2 text-white rounded-md ${
+                  type === 'CREDIT' 
+                    ? 'bg-green-600 hover:bg-green-700' 
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
+                disabled={!selectedCustomer || !amount}
+              >
+                Submit {type.toLowerCase()}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+
+      <CustomerFormModal
+        showModal={isAddCustomerModalOpen}
+        isEditing={false}
+        formData={customerFormData}
+        onSubmit={handleAddCustomer}
+        onCancel={() => {
+          setIsAddCustomerModalOpen(false);
+          setCustomerFormData({
+            name: '',
+            village_name: '',
+            contact_number: ''
+          });
+        }}
+        onFormDataChange={(data) => setCustomerFormData(prev => ({ ...prev, ...data }))}
+      />
+    </>
   );
 };
 
@@ -288,18 +380,18 @@ export default function Dashboard() {
           </div>
           <div className="mt-4 flex md:mt-0 md:ml-4 space-x-3">
             <button
-              onClick={() => openTransactionModal('CREDIT')}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
-              title="Payment received - reduces outstanding dues"
-            >
-              Credit (Payment)
-            </button>
-            <button
               onClick={() => openTransactionModal('DEBIT')}
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700"
               title="New purchase - increases outstanding dues"
             >
               Debit (Purchase)
+            </button>
+            <button
+              onClick={() => openTransactionModal('CREDIT')}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+              title="Payment received - reduces outstanding dues"
+            >
+              Credit (Payment)
             </button>
             <Link
               to="/customers"
@@ -309,7 +401,7 @@ export default function Dashboard() {
             </Link>
             <Link
               to="/villages"
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="hidden sm:inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               View Villages
             </Link>

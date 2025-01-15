@@ -4,6 +4,7 @@ import { Users, IndianRupee, ArrowUpRight, UserPlus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CustomerFormModal } from '../components/CustomerFormModal';
 import { useAuthStore } from '../store/authStore';
+import { LoadingSpinner } from '../components/LoadingSpinner';
 
 
 interface Transaction {
@@ -272,7 +273,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
 export default function Dashboard() {
   const [stats, setStats] = React.useState({
-    totalCustomers: 0,
+    totalCustomers: null as number | null,
     totalDues: 0,
     recentTransactions: [] as Transaction[],
   });
@@ -283,6 +284,15 @@ export default function Dashboard() {
     const { data: customers } = await supabase
       .from('customers')
       .select('id, outstanding_dues');
+
+    setStats(prev => ({
+      ...prev,
+      totalCustomers: customers?.length || 0,
+      totalDues: customers?.reduce(
+        (sum, c) => sum + (parseFloat(String(c.outstanding_dues)) || 0),
+        0
+      ) || 0,
+    }));
 
     const { data: transactions } = await supabase
       .from('transactions')
@@ -310,14 +320,10 @@ export default function Dashboard() {
       }
     }));
 
-    setStats({
-      totalCustomers: customers?.length || 0,
-      totalDues: customers?.reduce(
-        (sum, c) => sum + (parseFloat(String(c.outstanding_dues)) || 0),
-        0
-      ) || 0,
+    setStats(prev => ({
+      ...prev,
       recentTransactions: typedTransactions,
-    });
+    }));
   }
 
   React.useEffect(() => {
@@ -368,6 +374,10 @@ export default function Dashboard() {
     setTransactionType(type);
     setIsModalOpen(true);
   };
+
+  if (stats.totalCustomers === null) {
+    return <LoadingSpinner />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
